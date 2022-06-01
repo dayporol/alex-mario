@@ -133,13 +133,14 @@ class MARIO:
     vx = 0
     sz_y = 30
     sz_x = 21
+    draw_count = 0
 
     can_jump = True
     action = "stay"
     texture = {
-     "right": [(322, 53, sz_x, sz_y)],
-     "left": [(257, 1, sz_x, sz_y)],
-     "stay" : [(193, 211, sz_x, sz_y)]
+     "right": [(322, 1), (322, 53)],
+     "left": [(257, 53), (257, 1)],
+     "stay" : [(193, 211)]
     }
 
     def __init__(self) -> None:
@@ -189,15 +190,18 @@ class MARIO:
         self.vx = vx
 
     def draw(self,sc, wx):
+        self.draw_count += 1
         if self.vx < 0:
             self.action = "left"
         elif self.vx > 0:
             self.action = "right"
         else:
             self.action = "stay"
-        pygame.draw.rect(sc, BLACK, (mario.x - wx, mario.y, self.sz_x, self.sz_y))
+        #pygame.draw.rect(sc, BLACK, (mario.x - wx, mario.y, self.sz_x, self.sz_y))
         #sc.blit(all_mario,(mario.x - wx, mario.y), (68, 15, self.sz, self.sz) )
-        sc.blit(all_mario,(mario.x - wx, mario.y), self.texture[self.action][0] )
+        num_frames = len(self.texture[self.action])
+        frame = int(self.draw_count*5/FPS)%num_frames
+        sc.blit(all_mario,(mario.x - wx, mario.y), self.texture[self.action][frame] + (self.sz_x, self.sz_y) )
         if self.show_coin:
             sc.blit(self.coin_up, (mario.x - wx, mario.y - 12))
             self.show_coin -= 1
