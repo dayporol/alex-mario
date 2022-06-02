@@ -1,26 +1,28 @@
 from argparse import Action
+import json
 from random import randint
+import json
 import pygame
 pygame.init()
  
-w = 500
-h = 400
+w = 1000
+h = 600
 
 f1 = pygame.font.Font(None, 18)
 text1 = f1.render(' SCORE:', True,
                   (180, 0, 0))
 
-w_world = 2000
-h_bottom = 280
+w_world = 8000
+h_bottom = 550
 
 FPS = 30
 
 sky = pygame.image.load('sky2.jpg')
-sky_rect = sky.get_rect(bottomright=(1450, 550 ))
+sky_rect = sky.get_rect(bottomright=(1450, 750 ))
 block = pygame.image.load('block.jpg')
-block = pygame.transform.scale(block,(30,30))
+block = pygame.transform.scale(block,(60,60))
 all_mario = pygame.image.load('mario.png')
-all_mario = pygame.transform.scale(all_mario,(600,500))
+#all_mario = pygame.transform.scale(all_mario,(600,500))
 
 clock = pygame.time.Clock()
 
@@ -38,6 +40,7 @@ class WALL:
         self.h = h
         self.dy = 0
         self.coin = False
+        self.coin_up = False
         #self.coin_x = self.coin_y = 0
         
 
@@ -61,6 +64,7 @@ class WALL:
         if self.coin:
             if x < self.x+int(self.w/2) < x+w and y < self.y-12  < y+h:
                 self.coin = False
+                self.coin_up = True
                 return True
         return False
 
@@ -70,8 +74,9 @@ class WALL:
             return False
         else:
             if y < self.y + self.h < y + h and mario.vy < 0:
-                self.dy = -10
-                self.coin = True
+                if not self.coin_up:
+                    self.dy = -10
+                    self.coin = True
                 
         return True
         
@@ -79,6 +84,7 @@ class WALL:
 
 class WORLD:
     x_world = 0
+    block_size = 60
 
     walls = [
         WALL(0, h_bottom, w_world, h - h_bottom)
@@ -91,20 +97,10 @@ class WORLD:
         self.mario.walls = self.walls
         self.mario.world = self
         self.score = 0
-        for _ in range(30):
-            x = randint(0,int(w_world/30))
-            y = randint(0,int(h_bottom/30) -1)
-            self.walls.append(WALL(x*30, y*30, 30, 30))
-        #for i in range(1,6):
-            #self.walls.append(WALL(1500, h_bottom - i*30, 30, 30))
-            #self.walls.append(WALL(1530, h_bottom - i*30, 30, 30))
-            #self.walls.append(WALL(1470, h_bottom - 6*30, 30, 30))
-            #self.walls.append(WALL(1515, h_bottom - 6*30, 30, 30))
-            #self.walls.append(WALL(1560, h_bottom - 6*30, 30, 30))
-        for _ in range(50):
-            x = randint(0,w_world)
-            y = randint(h_bottom,h-50)
-            self.walls.append(WALL(x, y, 10*randint(1,3), 10))
+        with open('level.json') as json_file:
+            data = json.load(json_file)
+            for block in data['blocks']:
+                self.walls.append(WALL(block[0], block[1], self.block_size, self.block_size))
 
     def move(self):
         dx = self.mario.vx
@@ -131,16 +127,16 @@ class MARIO:
     y = 30
     vy = 0
     vx = 0
-    sz_y = 30
-    sz_x = 21
+    sz_y = 60
+    sz_x = 35
     draw_count = 0
 
     can_jump = True
     action = "stay"
     texture = {
-     "right": [(322, 1), (322, 53)],
-     "left": [(257, 53), (257, 1)],
-     "stay" : [(193, 211)]
+     "right": [(500, 200),(500,0), (500, 100)],
+     "left": [(400, 600), (400,100), (400, 700)],
+     "stay" : [(300, 400)]
     }
 
     def __init__(self) -> None:
@@ -150,7 +146,7 @@ class MARIO:
 
     def jump(self):
         if self.can_jump:
-            self.vy = -15
+            self.vy = -20
             self.can_jump = False
 
     def move(self):
@@ -200,7 +196,7 @@ class MARIO:
         #pygame.draw.rect(sc, BLACK, (mario.x - wx, mario.y, self.sz_x, self.sz_y))
         #sc.blit(all_mario,(mario.x - wx, mario.y), (68, 15, self.sz, self.sz) )
         num_frames = len(self.texture[self.action])
-        frame = int(self.draw_count*5/FPS)%num_frames
+        frame = int(self.draw_count*10/FPS)%num_frames
         sc.blit(all_mario,(mario.x - wx, mario.y), self.texture[self.action][frame] + (self.sz_x, self.sz_y) )
         if self.show_coin:
             sc.blit(self.coin_up, (mario.x - wx, mario.y - 12))
@@ -221,9 +217,9 @@ while 1:
     Keys = pygame.key.get_pressed()
     mario.set_vx(0)
     if Keys [pygame.K_LEFT]:
-        mario.set_vx(-5)
+        mario.set_vx(-7)
     elif Keys [pygame.K_RIGHT]:
-        mario.set_vx(5)
+        mario.set_vx(7)
         
     world.move()
     world.draw(sc)
