@@ -32,24 +32,46 @@ class WALL:
 class WORLD:
     x_world = 0
     block_size = 60
+    level_n = 0
+    
+    walls = []
 
-    walls = []  
+    def __init__(self):
+        self.font = pygame.font.Font(None, 14)
+        self._update_level_()
 
     def save_level(self):
-        with open('level.json', 'w') as outfile:
-            data = {}
-            data['blocks'] = [[w.x,w.y] for w in self.walls]
-            json_string = json.dumps(data)
+        
+        with open(self.level, 'w') as outfile:
+            data = {'blocks':[]}
+            for w in self.walls:
+                data['blocks'].append([w.x,w.y])
+            json_string = json.dumps(data, indent=4)
             outfile.write(json_string)
 
     def load_level(self):
-        with open('level.json') as json_file:
+        self.clean_level()
+        with open(self.level) as json_file:
             data = json.load(json_file)
             for block in data['blocks']:
                 self.walls.append(WALL(block[0], block[1], self.block_size, self.block_size))
+    
 
-    def new_level(self):
+    def clean_level(self):
         self.walls.clear()
+
+    def _update_level_(self):
+        self.level = "level{}.json".format(self.level_n)
+        self.level_info = self.font.render(self.level, True, WHITE)
+
+    def level_up(self):
+        self.level_n += 1
+        self._update_level_()
+
+    def level_down(self):
+        if self.level_n > 0:
+            self.level_n -= 1
+            self._update_level_()
 
     def left(self):
         if self.x_world > 0:
@@ -69,18 +91,20 @@ class WORLD:
 
     def draw(self, sc):
         x,y=0,0
+        for wall in self.walls:
+            wall.draw(sc, self.x_world)
         while x<w:
             pygame.draw.line(sc,WHITE,(x,0),(x,h))
             x += self.block_size/2
         while y<h:
             pygame.draw.line(sc,WHITE,(0,y),(w,y))
             y += self.block_size/2
-        for wall in self.walls:
-            wall.draw(sc, self.x_world)
-
+        sc.blit(self.level_info,(10,10))        
+                 
 world = WORLD()
 
 while 1:
+    sc.fill(BLACK)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             exit()
@@ -90,13 +114,17 @@ while 1:
             if event.key == pygame.K_l:
                 world.load_level()
             if event.key == pygame.K_n:
-                world.new_level()
+                world.clean_level()
             if event.key == pygame.K_u:
                 world.undo()
             if event.key == pygame.K_LEFT:
                 world.left()
             if event.key == pygame.K_RIGHT:
                 world.right()
+            if event.key == pygame.K_UP:
+                world.level_up()
+            if event.key == pygame.K_DOWN:
+                world.level_down()
         if event.type == pygame.MOUSEBUTTONUP:
             pos = pygame.mouse.get_pos()
             world.add_block(pos)    
