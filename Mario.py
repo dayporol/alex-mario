@@ -54,7 +54,7 @@ class WALL:
                 else:
                     pygame.draw.rect(sc, BLACK, (self.x - wx, self.y , self.w , self.h))
         if self.coin:
-            pygame.draw.circle(sc, YELLOW, (self.x+int(self.w/2) - wx, self.y - 12), 8)
+            pygame.draw.circle(sc, YELLOW, (self.x+int(self.w/2) - wx, self.y - 17), 12)
             
             
         if self.dy != 0:
@@ -85,10 +85,10 @@ class WALL:
 class WORLD:
     x_world = 0
     block_size = 60
+    botton_block = WALL(0, h_bottom, w_world, h - h_bottom)
+    
 
-    walls = [
-        WALL(0, h_bottom, w_world, h - h_bottom)
-    ]  
+    walls = []  
     stones = []  
 
     def __init__(self, mario) -> None:
@@ -97,10 +97,20 @@ class WORLD:
         self.mario.walls = self.walls
         self.mario.world = self
         self.score = 0
-        with open('level.json') as json_file:
+        self.load_level(0)
+
+    def load_level(self, n):
+        level = "level{}.json".format(n)
+        self.clean_level()
+        with open(level) as json_file:
             data = json.load(json_file)
+            self.walls.append(self.botton_block)
             for block in data['blocks']:
                 self.walls.append(WALL(block[0], block[1], self.block_size, self.block_size))
+
+    def clean_level(self):
+        self.walls.clear()
+        self.score = 0
 
     def move(self):
         dx = self.mario.vx
@@ -134,9 +144,11 @@ class MARIO:
     can_jump = True
     action = "stay"
     texture = {
-     "right": [(500, 200),(500,0), (500, 100)],
-     "left": [(400, 600), (400,100), (400, 700)],
-     "stay" : [(300, 400)]
+     "right": [(500, 200),(500,100), (500, 0), (500, 100)],
+     "left": [(400, 600), (400,700), (400, 800), (400, 700)],
+     "stay" : [(300, 400)],
+     "jump_right": [(500, 400)],
+     "jump_left": [(400, 400)]
     }
 
     def __init__(self) -> None:
@@ -171,7 +183,7 @@ class MARIO:
                     self.x = w.x + w.w + 1
                 break
 
-        if self.vy < 12:
+        if self.vy < 20:
             self.vy = self.vy + 1
 
     def hit_coin(self):
@@ -193,6 +205,11 @@ class MARIO:
             self.action = "right"
         else:
             self.action = "stay"
+        if not self.can_jump and self.vx > 0:
+            self.action = "jump_right"
+        if not self.can_jump and self.vx < 0:
+            self.action = "jump_left"
+        
         #pygame.draw.rect(sc, BLACK, (mario.x - wx, mario.y, self.sz_x, self.sz_y))
         #sc.blit(all_mario,(mario.x - wx, mario.y), (68, 15, self.sz, self.sz) )
         num_frames = len(self.texture[self.action])
@@ -214,6 +231,12 @@ while 1:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
                 mario.jump()
+            if event.key == pygame.K_1:
+                world.load_level(0)
+            if event.key == pygame.K_2:
+                world.load_level(1)
+            if event.key == pygame.K_3:
+                world.load_level(2)
     Keys = pygame.key.get_pressed()
     mario.set_vx(0)
     if Keys [pygame.K_LEFT]:
