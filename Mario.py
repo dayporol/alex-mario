@@ -16,9 +16,15 @@ w_world = 8000
 h_bottom = 550
 
 FPS = 30
+pygame.mixer.music.load("super-mario-saundtrek.mp3")
+pygame.mixer.music.play(-1)
+
+song1 = pygame.mixer.Sound("money.mp3")
+song2 = pygame.mixer.Sound("mario_jump.mp3")
+
 
 sky = pygame.image.load('sky2.jpg')
-sky_rect = sky.get_rect(bottomright=(1450, 750 ))
+sky_rect = sky.get_rect(bottomright=(1700, 820 ))
 block = pygame.image.load('block.jpg')
 block = pygame.transform.scale(block,(60,60))
 all_mario = pygame.image.load('mario.png')
@@ -65,6 +71,7 @@ class WALL:
             if x < self.x+int(self.w/2) < x+w and y < self.y-12  < y+h:
                 self.coin = False
                 self.coin_up = True
+                song1.play()
                 return True
         return False
 
@@ -160,6 +167,9 @@ class MARIO:
         if self.can_jump:
             self.vy = -20
             self.can_jump = False
+            song2.play()
+
+
 
     def move(self):
         # y
