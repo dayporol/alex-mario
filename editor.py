@@ -10,13 +10,14 @@ h = 600
 
 
 w_world = 8000
-h_bottom = 550
+h_bottom = 540
 
 sc = pygame.display.set_mode((w,h), pygame.RESIZABLE)
 WHITE = 255, 255, 255
 GREEN = 0, 255, 0
 BLACK = 0, 0, 0
 YELLOW = 255, 255, 0
+RED = 255, 0, 0
 
 class WALL:
     def __init__(self,x,y,w,h) -> None:
@@ -31,10 +32,21 @@ class WALL:
 
 class WORLD:
     x_world = 0
-    block_size = 60
+    cell_size = 30
+    tool_size = 60
     level_n = 0
-    
+    block_size = 60
     walls = []
+    active_tool = 0
+
+    tools = [
+        (1,1),
+        (1,2),
+        (2,1),
+        (2,2),
+        (2,4),
+        (4,2)
+    ]
 
     def __init__(self):
         self.font = pygame.font.Font(None, 14)
@@ -45,7 +57,13 @@ class WORLD:
         with open(self.level, 'w') as outfile:
             data = {'blocks':[]}
             for w in self.walls:
-                data['blocks'].append([w.x,w.y])
+                block = {
+                    'x':w.x,
+                    'y':w.y,
+                    'w':w.w,
+                    'h':w.h
+                }
+                data['blocks'].append(block)
             json_string = json.dumps(data, indent=4)
             outfile.write(json_string)
 
@@ -54,7 +72,7 @@ class WORLD:
         with open(self.level) as json_file:
             data = json.load(json_file)
             for block in data['blocks']:
-                self.walls.append(WALL(block[0], block[1], self.block_size, self.block_size))
+                self.walls.append(WALL(block['x'], block['y'], block['w'], block['h']))
     
 
     def clean_level(self):
@@ -84,22 +102,38 @@ class WORLD:
     def add_block(self, pos):
         x = pos[0] - pos[0]%(self.block_size/2) + self.x_world
         y = pos[1] - pos[1]%(self.block_size/2)
-        self.walls.append(WALL(x,y, self.block_size, self.block_size))
+        if self.active_tool < len(self.tools):
+            w = self.cell_size* self.tools[self.active_tool][0]
+            h = self.cell_size* self.tools[self.active_tool][1]
+            self.walls.append(WALL(x,y, w, h))
     
     def undo(self):
         self.walls.pop()
 
+    def use_tool(self,x):
+        self.active_tool = int(x/self.tool_size)
+ 
     def draw(self, sc):
         x,y=0,0
         for wall in self.walls:
             wall.draw(sc, self.x_world)
         while x<w:
-            pygame.draw.line(sc,WHITE,(x,0),(x,h))
+            pygame.draw.line(sc,WHITE,(x,0),(x,h_bottom))
             x += self.block_size/2
-        while y<h:
+        while y<h_bottom:
             pygame.draw.line(sc,WHITE,(0,y),(w,y))
             y += self.block_size/2
-        sc.blit(self.level_info,(10,10))        
+        sc.blit(self.level_info,(10,10))
+        # small block
+        for i in range(0,10):
+            if i == self.active_tool:
+                pygame.draw.rect(sc,RED,(i*self.tool_size,h_bottom, self.tool_size, self.tool_size),1,5)   
+            else:
+                pygame.draw.rect(sc,YELLOW,(i*self.tool_size,h_bottom, self.tool_size, self.tool_size),1,5)        
+            if i < len(self.tools):
+                WALL(i*self.tool_size + 10, h_bottom + 10,  10 * self.tools[i][0], 10 * self.tools[i][1]).draw(sc, 0)
+
+
                  
 world = WORLD()
 
@@ -127,7 +161,10 @@ while 1:
                 world.level_down()
         if event.type == pygame.MOUSEBUTTONUP:
             pos = pygame.mouse.get_pos()
-            world.add_block(pos)    
+            if pos[1] < h_bottom:
+                world.add_block(pos)
+            else:
+                world.use_tool(pos[0])    
     sc.fill(BLACK)
     world.draw(sc)
     pygame.display.flip()
