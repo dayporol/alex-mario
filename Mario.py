@@ -30,6 +30,7 @@ block = pygame.image.load('block.jpg')
 #block = pygame.transform.scale(block,(60,60))
 all_mario = pygame.image.load('mario.png')
 all_goomba = pygame.image.load('goomba.png')
+all_money = pygame.image.load('mario_money.png')
 #all_mario = pygame.transform.scale(all_mario,(600,500))
 
 clock = pygame.time.Clock()
@@ -41,15 +42,16 @@ BLACK = 0, 0, 0
 YELLOW = 255, 255, 0
 
 class WALL:
-    def __init__(self,x,y,w,h) -> None:
+    def __init__(self,x,y,w,h,c=0) -> None:
         self.x = x
         self.y = y
         self.w = w
         self.h = h
         self.dy = 0
-        self.coin = False
-        self.coin_up = False
-        #self.coin_x = self.coin_y = 0
+        self.has_coin = c
+        self.show_coin = False
+        self.has_coin = c
+        self.show_coin = False
         
 
     def draw(self, sc, wx):
@@ -61,31 +63,29 @@ class WALL:
                     pygame.draw.rect(sc, GREEN, (self.x - wx, self.y , self.w , self.h))
                 else:
                     pygame.draw.rect(sc, BLACK, (self.x - wx, self.y , self.w , self.h))
-        if self.coin:
-            pygame.draw.circle(sc, YELLOW, (self.x+int(self.w/2) - wx, self.y - 17), 12)
+        if self.show_coin:
+            sc.blit(all_money, (self.x+int(self.w/2)- 10 - wx, self.y - 23))
             
             
         if self.dy != 0:
             self.dy += 1
 
     def hit_coin(self, x,y,w,h):
-        if self.coin:
+        if self.show_coin:
             if x < self.x+int(self.w/2) < x+w and y < self.y-12  < y+h:
-                self.coin = False
-                self.coin_up = True
+                self.show_coin = False
                 song1.play()
                 return True
         return False
 
     def hit(self, x,y,w,h):
-
         if x+w<self.x or x > self.x+self.w or y > self.y+self.h or y+h<self.y:
             return False
         else:
-            if y < self.y + self.h < y + h and mario.vy < 0:
-                if not self.coin_up:
-                    self.dy = -10
-                    self.coin = True
+            if self.has_coin and y < self.y + self.h < y + h and mario.vy < 0:
+                self.dy = -10
+                self.show_coin = True
+                self.has_coin = False
                 
         return True
         
@@ -115,15 +115,14 @@ class WORLD:
             data = json.load(json_file)
             self.walls.append(self.botton_block)
             for block in data['blocks']:
-                self.walls.append(WALL(block['x'], block['y'], block['w'], block['h']))
-        self.goombas.append(GOOMBA(530,h_bottom-46))
-        self.goombas.append(GOOMBA(630,h_bottom-46))
-        self.goombas.append(GOOMBA(730,h_bottom-46))
-        self.goombas.append(GOOMBA(830,h_bottom-46))
+                self.walls.append(WALL(block['x'], block['y'], block['w'], block['h'],block.get('c',0)))
+            for g in data.get('goombas',[]):
+                self.goombas.append(GOOMBA(g['x'],g['y']))
 
     def clean_level(self):
         self.walls.clear()
         self.score = 0
+        self.goombas.clear()
 
     def move(self):
         dx = self.mario.vx
@@ -180,7 +179,7 @@ class MARIO:
      "jump_left": [(400, 400)]
     }
 
-    def __init__(self) -> None:
+    def __init__(self):
         font = pygame.font.Font(None, 14)
         self.coin_up = font.render("+1", True, YELLOW)
         self.show_coin = 0
@@ -190,8 +189,6 @@ class MARIO:
             self.vy = -20
             self.can_jump = False
             song2.play()
-
-
 
     def move(self):
         # y
@@ -273,6 +270,7 @@ class GOOMBA:
     def kill(self):
         self.alive = False
 
+
     def move(self):
         if self.alive:
             self.x += self.vx
@@ -288,12 +286,14 @@ class GOOMBA:
             frame = int(self.draw_count*10/FPS)%num_frames
             sc.blit(all_goomba,(self.x - wx, self.y), self.textures_walk[frame] + (self.sz_x, self.sz_y) )
         else:
+            self.show_coin = True
             sc.blit(all_goomba,(self.x - wx, self.y), self.textures_dead + (self.sz_x, self.sz_y) )
+            
 
 
 mario = MARIO()
 world = WORLD(mario)
-
+goomba = GOOMBA()
 while 1:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:

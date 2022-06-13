@@ -19,15 +19,38 @@ BLACK = 0, 0, 0
 YELLOW = 255, 255, 0
 RED = 255, 0, 0
 
+all_goomba = pygame.image.load('goomba.png')
+
+
 class WALL:
-    def __init__(self,x,y,w,h) -> None:
+    def __init__(self,x,y,w,h,c=False) -> None:
         self.x = x
         self.y = y
         self.w = w
         self.h = h
+        self.c = c
         
     def draw(self, sc, wx):
         pygame.draw.rect(sc, GREEN, (self.x - wx, self.y , self.w , self.h))
+        if self.c:
+            pygame.draw.circle(sc, YELLOW, (self.x - wx + self.w//2, self.y+self.h//2) , 5)
+            pygame.draw.circle(sc, BLACK, (self.x - wx + self.w//2, self.y+self.h//2) , 6, 2)
+
+
+#GOOMBA
+class GOOMBA:
+    sz_y = 46
+    sz_x = 46
+
+    texture = (33, 11)
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        
+    def draw(self,sc, wx):
+        sc.blit(all_goomba,(self.x - wx, self.y), self.texture + (self.sz_x, self.sz_y) )
+
 
 
 class WORLD:
@@ -37,15 +60,18 @@ class WORLD:
     level_n = 0
     block_size = 60
     walls = []
+    goombas = []
     active_tool = 0
 
     tools = [
-        (1,1),
-        (1,2),
-        (2,1),
-        (2,2),
-        (2,4),
-        (4,2)
+        {'type': 'wall', 'size': (1,1) ,'has_coin':0},
+        {'type': 'wall', 'size': (1,2) ,'has_coin':0},
+        {'type': 'wall', 'size': (2,1) ,'has_coin':0},
+        {'type': 'wall', 'size': (2,2) ,'has_coin':0},
+        {'type': 'wall', 'size': (2,2) ,'has_coin':1},
+        {'type': 'wall', 'size': (2,4) ,'has_coin':0},
+        {'type': 'wall', 'size': (4,2) ,'has_coin':0},
+        {'type': 'goomba'},
     ]
 
     def __init__(self):
@@ -55,15 +81,22 @@ class WORLD:
     def save_level(self):
         
         with open(self.level, 'w') as outfile:
-            data = {'blocks':[]}
+            data = {'blocks':[],'goombas':[]}
             for w in self.walls:
                 block = {
                     'x':w.x,
                     'y':w.y,
                     'w':w.w,
-                    'h':w.h
+                    'h':w.h,
+                    'c':w.c
                 }
                 data['blocks'].append(block)
+            for g in self.goombas:
+                goomba = {
+                    'x':g.x,
+                    'y':g.y,
+                }
+                data['goombas'].append(goomba)
             json_string = json.dumps(data, indent=4)
             outfile.write(json_string)
 
@@ -72,10 +105,13 @@ class WORLD:
         with open(self.level) as json_file:
             data = json.load(json_file)
             for block in data['blocks']:
-                self.walls.append(WALL(block['x'], block['y'], block['w'], block['h']))
+                self.walls.append(WALL(block['x'], block['y'], block['w'], block['h'], block.get('c',0)))
+            for g in data.get('goombas',[]):
+                self.goombas.append(GOOMBA(g['x'], g['y']))
     
 
     def clean_level(self):
+        self.goombas.clear()
         self.walls.clear()
 
     def _update_level_(self):
@@ -103,13 +139,22 @@ class WORLD:
         x = pos[0] - pos[0]%(self.block_size/2) + self.x_world
         y = pos[1] - pos[1]%(self.block_size/2)
         if self.active_tool < len(self.tools):
-            w = self.cell_size* self.tools[self.active_tool][0]
-            h = self.cell_size* self.tools[self.active_tool][1]
-            self.walls.append(WALL(x,y, w, h))
+            tool = self.tools[self.active_tool]
+            if tool['type'] == 'wall':
+                w = self.cell_size* tool['size'][0]
+                h = self.cell_size* tool['size'][1]
+                self.walls.append(WALL(x,y, w, h, tool['has_coin'] ))
+            elif tool['type'] == 'goomba':
+                self.goombas.append(GOOMBA(x,y))
     
     def undo(self):
-        self.walls.pop()
-
+        if self.active_tool < len(self.tools):
+            tool = self.tools[self.active_tool]
+            if tool['type'] == 'wall':
+                self.walls.pop()
+            elif tool['type'] == 'goomba':
+                self.goombas.pop()
+ 
     def use_tool(self,x):
         self.active_tool = int(x/self.tool_size)
  
@@ -117,6 +162,10 @@ class WORLD:
         x,y=0,0
         for wall in self.walls:
             wall.draw(sc, self.x_world)
+
+        for g in self.goombas:
+            g.draw(sc, self.x_world)
+
         while x<w:
             pygame.draw.line(sc,WHITE,(x,0),(x,h_bottom))
             x += self.block_size/2
@@ -131,7 +180,12 @@ class WORLD:
             else:
                 pygame.draw.rect(sc,YELLOW,(i*self.tool_size,h_bottom, self.tool_size, self.tool_size),1,5)        
             if i < len(self.tools):
-                WALL(i*self.tool_size + 10, h_bottom + 10,  10 * self.tools[i][0], 10 * self.tools[i][1]).draw(sc, 0)
+                if self.tools[i]['type'] == 'wall':
+                    size = self.tools[i]['size']
+                    has_coin = self.tools[i]['has_coin']
+                    WALL(i*self.tool_size + 10, h_bottom + 10,  10 * size[0], 10 * size[1], has_coin).draw(sc, 0)
+                elif self.tools[i]['type'] == 'goomba':
+                    GOOMBA(i*self.tool_size + 7, h_bottom + 5).draw(sc,0)
 
 
                  
@@ -161,7 +215,7 @@ while 1:
                 world.level_down()
         if event.type == pygame.MOUSEBUTTONUP:
             pos = pygame.mouse.get_pos()
-            if pos[1] < h_bottom:
+            if pos[1 ] < h_bottom:
                 world.add_block(pos)
             else:
                 world.use_tool(pos[0])    
