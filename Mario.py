@@ -1,8 +1,12 @@
 from argparse import Action
 from ast import alias
 import json
+from os import supports_bytes_environ
 from random import randint
 import json
+from re import T
+from sys import flags
+from time import sleep
 import pygame
 pygame.init()
  
@@ -13,7 +17,7 @@ f1 = pygame.font.Font(None, 18)
 text1 = f1.render(' SCORE:', True,
                   (180, 0, 0))
 
-w_world = 8000
+w_world = 5000
 h_bottom = 540
 
 FPS = 30
@@ -22,6 +26,11 @@ pygame.mixer.music.play(-1)
 
 song1 = pygame.mixer.Sound("money.mp3")
 song2 = pygame.mixer.Sound("mario_jump.mp3")
+song3 = pygame.mixer.Sound("mario-dead.mp3")
+song4 = pygame.mixer.Sound("goomba-dead.mp3")
+song5 = pygame.mixer.Sound("mario_level.end.mp3")
+
+
 
 
 sky = pygame.image.load('sky2.jpg')
@@ -40,18 +49,47 @@ WHITE = 255, 255, 255
 GREEN = 0, 255, 0
 BLACK = 0, 0, 0
 YELLOW = 255, 255, 0
+RED = 255,0,0
 
-class WALL:
+class FLAG(pygame.Rect):
+    def __init__(self) -> None:
+        super(FLAG,self).__init__(150 - 50 ,20, 10, h_bottom-20)
+        self.f_h = self.y
+        self.move_down = False
+        self.flag_down = False
+
+    def draw(self, sc, wx):
+        pygame.draw.rect(sc, BLACK, (self.x - wx, self.y , self.w , self.h))
+        pygame.draw.polygon(sc, RED, points=[(self.x- wx, self.f_h), (self.x - 50- wx, self.f_h + 20), (self.x-wx, self.f_h+40)])
+        if self.move_down:
+            self.f_h += 2
+        if self.f_h > self.h - 25:
+            self.flag_down = True
+            self.move_down = False
+
+    def reset(self):
+        self.f_h = self.y
+        self.move_down = False
+        self.flag_down = False
+
+    def set_down(self):
+        if not self.flag_down:
+            self.move_down = True
+
+
+class COIN(pygame.Rect):
+    def __init__(self,x,y) -> None:
+        super(COIN,self).__init__(x,y,20,20)
+
+    def draw(self, sc, wx):
+        sc.blit(all_money, (self.x - wx, self.y))
+            
+
+class WALL(pygame.Rect):
     def __init__(self,x,y,w,h,c=0) -> None:
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
+        super(WALL,self).__init__(x,y,w,h)
         self.dy = 0
         self.has_coin = c
-        self.show_coin = False
-        self.has_coin = c
-        self.show_coin = False
         
 
     def draw(self, sc, wx):
@@ -63,53 +101,41 @@ class WALL:
                     pygame.draw.rect(sc, GREEN, (self.x - wx, self.y , self.w , self.h))
                 else:
                     pygame.draw.rect(sc, BLACK, (self.x - wx, self.y , self.w , self.h))
-        if self.show_coin:
-            sc.blit(all_money, (self.x+int(self.w/2)- 10 - wx, self.y - 23))
-            
-            
+
         if self.dy != 0:
             self.dy += 1
 
-    def hit_coin(self, x,y,w,h):
-        if self.show_coin:
-            if x < self.x+int(self.w/2) < x+w and y < self.y-12  < y+h:
-                self.show_coin = False
-                song1.play()
-                return True
-        return False
-
-    def hit(self, x,y,w,h):
-        if x+w<self.x or x > self.x+self.w or y > self.y+self.h or y+h<self.y:
-            return False
-        else:
-            if self.has_coin and y < self.y + self.h < y + h and mario.vy < 0:
-                self.dy = -10
-                self.show_coin = True
-                self.has_coin = False
-                
-        return True
-        
-
+    def hit(self):
+        if self.has_coin:
+            self.dy = -10
+            self.has_coin = False
+            # TODO - FIXME !!!
+            world.coins.append(COIN(self.x+int(self.w/2)-10, self.y - 23))
+            
 
 class WORLD:
     x_world = 0
     block_size = 60
+    lives = 4
     botton_block = WALL(0, h_bottom, w_world, h - h_bottom)
-    
+    current_level = 0
+
     goombas = []
     walls = []  
-    stones = []  
+    stones = []
+    coins = []
+
 
     def __init__(self, mario) -> None:
         self.font = pygame.font.Font(None, 18)
         self.mario = mario
-        self.mario.walls = self.walls
-        self.mario.world = self
+        self.flag = FLAG()
         self.score = 0
         self.load_level(0)
 
     def load_level(self, n):
         level = "level{}.json".format(n)
+        self.current_level = n
         self.clean_level()
         with open(level) as json_file:
             data = json.load(json_file)
@@ -119,57 +145,86 @@ class WORLD:
             for g in data.get('goombas',[]):
                 self.goombas.append(GOOMBA(g['x'],g['y']))
 
+
     def clean_level(self):
+        self.mario.restart()
         self.walls.clear()
         self.score = 0
         self.goombas.clear()
+        self.coins.clear()
+        self.x_world = 0
+        self.flag.reset()
 
     def move(self):
         dx = self.mario.vx
-        if not ( dx > 0 and self.mario.x < w_world - self.mario.sz_x or dx < 0 and self.mario.x > 0 ):
+        if not ( dx > 0 and self.mario.x < w_world - self.mario.w or dx < 0 and self.mario.x > 0 ):
             self.mario.vx = 0
-        self.mario.move()
-        if self.mario.hit_coin():
+        self.mario.move(self.walls)
+        i = self.mario.collidelist(self.coins)
+        if i >= 0 and self.mario.alive:
             self.score += 1
+            self.coins.pop(i)
+            song1.play()
+            mario.hit_coin()
+
         if dx > 0 and self.mario.x - self.x_world > w*3/4 and self.x_world < w_world - w :
             self.x_world += dx
         if dx < 0 and self.mario.x - self.x_world < w*1/4 and self.x_world > 0 :
             self.x_world += dx
         for g in self.goombas:
-            g.move()
-        self.hit_goomba()
- 
+            if g.top > h:
+                self.goombas.remove(g)
+            g.move(self.walls)
+        
+        if self.mario.alive:
+            self.hit_goombas()
+            if not self.flag.move_down and self.mario.colliderect(self.flag) and mario.vy != 0 and not self.flag.flag_down :
+                pygame.mixer.music.pause()
+                song5.play()
+                mario.mario_on_flag = True
+                self.flag.set_down()
+
+        if self.flag.flag_down:
+            self.current_level = (self.current_level + 1) % 3
+            self.load_level(self.current_level)
+
+
+        if self.mario.top > h*2.7:
+            self.load_level(self.current_level)
+            self.lives -= 1
+
+
     def draw(self, sc):
         sc.blit(sky, sky_rect)
         for wall in self.walls:
             wall.draw(sc, self.x_world)
         for g in self.goombas:
             g.draw(sc,self.x_world)
+        for c in self.coins:
+            c.draw(sc, self.x_world)
+        self.flag.draw(sc, self.x_world)
         self.mario.draw(sc, self.x_world)
-        score_text = self.font.render('score:{}'.format(self.score), True, (180, 0, 0))
+        score_text = self.font.render('score:{}  lives:{}'.format(self.score, self.lives), True, (180, 0, 0))
         sc.blit(score_text,(10,10))
     
-    def hit_goomba(self):
-        m = self.mario
-        for g in self.goombas:
-            if g.kill_timeout == 0:
-                self.goombas.remove(g)
-            if g.alive and not ( m.x > g.x + g.sz_x or m.x + m.sz_x < g.x or m.y + m.sz_y < g.y or m.y > g.y + g.sz_y ):
-                if m.y < g.y < m.y+m.sz_y and not m.can_jump and m.vy > 0:
-                    g.kill()
-                return True
-        return False
+    def hit_goombas(self):
+        i = self.mario.collidelist(self.goombas)
+        if i >= 0:
+            if self.mario.vy > 0:
+                self.goombas[i].kill()
+            elif self.goombas[i].alive:
+                self.mario.kill()
+                pygame.mixer.music.pause()
+                song3.play()
 
-class MARIO:
-    x = 330 
-    y = 30
+
+class MARIO(pygame.Rect):
     vy = 0
     vx = 0
-    sz_y = 60
-    sz_x = 35
     draw_count = 0
-
+    alive = True
     can_jump = True
+    mario_on_flag = False
     action = "stay"
     texture = {
      "right": [(500, 200),(500,100), (500, 0), (500, 100)],
@@ -180,53 +235,70 @@ class MARIO:
     }
 
     def __init__(self):
+        super(MARIO, self).__init__(50,50,35,60)
         font = pygame.font.Font(None, 14)
         self.coin_up = font.render("+1", True, YELLOW)
         self.show_coin = 0
 
+    def restart(self):
+        self.alive = True
+        self.vx = 0
+        self.vy = 0
+        self.x = 50
+        self.y = 50
+        pygame.mixer.music.unpause()
+   
+
     def jump(self):
-        if self.can_jump:
+        if self.alive and self.can_jump:
             self.vy = -20
             self.can_jump = False
             song2.play()
 
-    def move(self):
-        # y
-        self.y += self.vy
-        for w in self.walls:
-            if w.hit(self.x, self.y, self.sz_x, self.sz_y):
-                if self.vy > 0:
-                    self.y = w.y - self.sz_y - 1
-                else:
-                    self.y = w.y + w.h + 1
-                self.vy = 0
-                self.can_jump = True
-                break
-        # x
-        self.x += self.vx
-        for w in self.walls:
-            if w.y < h_bottom and w.hit(self.x, self.y, self.sz_x, self.sz_y):
-                if self.vx > 0:
-                    self.x = w.x - self.sz_x - 1
-                else:
-                    self.x = w.x + w.w + 1
-                break
+    def kill(self):
+        self.alive = False
+        self.vy = -15
+
+
+    def move(self, walls):
+        if self.mario_on_flag:
+            self.vx = 0
+            self.vy = 4
 
         if self.vy < 20:
             self.vy = self.vy + 1
+        # y
+        self.y += self.vy
+        i = self.collidelist(walls)
+        if i >= 0 and self.alive:
+            wall = walls[i]
+            if self.vy > 0:
+                self.y = wall.y - self.h
+                self.can_jump = True
+            else:
+                self.y = wall.y + wall.h
+                wall.hit()
+            self.vy = 0
+        # x
+        self.x += self.vx
+        i = self.collidelist(walls)
+        if i>=0 and self.alive:
+            wall = walls[i]
+            if self.vx > 0:
+                self.x = wall.x - self.w
+            else:
+                self.x = wall.x + wall.w
 
+        if self.mario_on_flag and self.bottom >= h_bottom:
+            self.mario_on_flag = False
+       
+ 
     def hit_coin(self):
-        for w in self.walls:
-            if w.hit_coin(self.x, self.y, self.sz_x, self.sz_y):
-                self.show_coin = FPS
-                return True
-        return False
-
-    def hit_goomba(self):
-        pass
+        self.show_coin = FPS
 
     def set_vx(self, vx):
-        self.vx = vx
+        if self.alive:
+            self.vx = vx
 
     def draw(self,sc, wx):
         self.draw_count += 1
@@ -240,60 +312,82 @@ class MARIO:
             self.action = "jump_right"
         if not self.can_jump and self.vx < 0:
             self.action = "jump_left"
-        
-        #pygame.draw.rect(sc, BLACK, (mario.x - wx, mario.y, self.sz_x, self.sz_y))
+        if not self.alive or self.mario_on_flag:
+            self.action = "jump_right"
+            
+
+        #pygame.draw.rect(sc, BLACK, (mario.x - wx, mario.y, self.w, self.h))
         num_frames = len(self.texture[self.action])
         frame = int(self.draw_count*10/FPS)%num_frames
-        sc.blit(all_mario,(self.x - wx, self.y), self.texture[self.action][frame] + (self.sz_x, self.sz_y) )
+        sc.blit(all_mario,(self.x - wx, self.y), self.texture[self.action][frame] + (self.w, self.h) )
         if self.show_coin:
             sc.blit(self.coin_up, (self.x - wx, self.y - 12))
             self.show_coin -= 1
         
 
 #GOOMBA
-class GOOMBA:
+class GOOMBA(pygame.Rect):
     vx = 3
-    sz_y = 46
-    sz_x = 46
+    vy = 0
     draw_count = 0
     alive = True
-    kill_timeout = 2*FPS
 
     textures_walk = [(33, 11),(91,11)]
     textures_dead = (151, 11)
 
     def __init__(self, x, y):
         self.x0 = x
-        self.x = x
-        self.y = y
+        super(GOOMBA,self).__init__(x,y, 46,46)
         
     def kill(self):
         self.alive = False
+        self.vy = -15
+        song4.play()
 
-
-    def move(self):
-        if self.alive:
-            self.x += self.vx
-        else:
-            self.kill_timeout -= 1
-        if abs(self.x - self.x0) > 200:
+    def move(self,walls):
+        # y
+        self.y += self.vy
+        i = self.collidelist(walls)
+        if i >= 0 and self.alive:
+            wall = walls[i]
+            if self.vy > 0:
+                self.y = wall.y - self.h
+            else:
+                self.y = wall.y + wall.h
+            self.vy = 0
+        # x
+        self.x += self.vx
+        i = self.collidelist(walls)
+        if i>=0 and self.alive:
+            wall = walls[i]
+            if self.vx > 0:
+                self.x = wall.x - self.w
+            else:
+                self.x = wall.x + wall.w
             self.vx = - self.vx
+        if self.vy < 20:
+            self.vy = self.vy + 1
+
+        if self.alive and abs(self.x - self.x0) > 200:
+            self.vx = - self.vx
+        
 
     def draw(self,sc, wx):
         if self.alive:
             self.draw_count += 1
             num_frames = len(self.textures_walk)
             frame = int(self.draw_count*10/FPS)%num_frames
-            sc.blit(all_goomba,(self.x - wx, self.y), self.textures_walk[frame] + (self.sz_x, self.sz_y) )
+            sc.blit(all_goomba,(self.x - wx, self.y), self.textures_walk[frame] + (self.w, self.h) )
         else:
             self.show_coin = True
-            sc.blit(all_goomba,(self.x - wx, self.y), self.textures_dead + (self.sz_x, self.sz_y) )
-            
+            sc.blit(all_goomba,(self.x - wx, self.y), self.textures_dead + (self.w, self.h) )
+
 
 
 mario = MARIO()
 world = WORLD(mario)
-goomba = GOOMBA()
+
+pygame.mixer.music.play(-1)
 while 1:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
