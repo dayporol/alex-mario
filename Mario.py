@@ -12,12 +12,15 @@ pygame.init()
  
 w = 1000
 h = 600
+sc = pygame.display.set_mode((w,h), pygame.RESIZABLE)
 
 f1 = pygame.font.Font(None, 18)
-text1 = f1.render(' SCORE:', True,
-                  (180, 0, 0))
+f2 = pygame.font.Font(None, 18)
+text1 = f1.render(' SCORE:', True,(180, 0, 0))
+text2 = f2.render('GAME OVER', True,(180, 0, 0))
 
-w_world = 5000
+
+w_world = 8000
 h_bottom = 540
 
 FPS = 30
@@ -36,6 +39,10 @@ song5 = pygame.mixer.Sound("mario_level.end.mp3")
 sky = pygame.image.load('sky2.jpg')
 sky_rect = sky.get_rect(bottomright=(1700, 820 ))
 block = pygame.image.load('block.jpg')
+picture = block_surprise  = pygame.image.load('mario_block-surprise.png')
+picture = pygame.transform.scale(picture, (60, 60))
+rect = picture.get_rect()
+
 #block = pygame.transform.scale(block,(60,60))
 all_mario = pygame.image.load('mario.png')
 all_goomba = pygame.image.load('goomba.png')
@@ -44,26 +51,31 @@ all_money = pygame.image.load('mario_money.png')
 
 clock = pygame.time.Clock()
 
-sc = pygame.display.set_mode((w,h), pygame.RESIZABLE)
 WHITE = 255, 255, 255
 GREEN = 0, 255, 0
 BLACK = 0, 0, 0
 YELLOW = 255, 255, 0
 RED = 255,0,0
+BROWN = 153, 51, 0
 
 class FLAG(pygame.Rect):
     def __init__(self) -> None:
-        super(FLAG,self).__init__(150 - 50 ,20, 10, h_bottom-20)
+        super(FLAG,self).__init__(w_world - 100 ,20, 10, h_bottom-20)
         self.f_h = self.y
         self.move_down = False
         self.flag_down = False
 
     def draw(self, sc, wx):
-        pygame.draw.rect(sc, BLACK, (self.x - wx, self.y , self.w , self.h))
-        pygame.draw.polygon(sc, RED, points=[(self.x- wx, self.f_h), (self.x - 50- wx, self.f_h + 20), (self.x-wx, self.f_h+40)])
+        pygame.draw.rect(sc, GREEN, (self.x - wx, self.y , self.w -3, self.h))
+        pygame.draw.polygon(sc, WHITE, points=[(self.x- wx, self.f_h +10), (self.x - 50- wx, self.f_h + 20 +10), (self.x-wx, self.f_h+40+10)])
+        pygame.draw.rect(sc, BROWN, (self.x -wx -17, w - h_bottom+40, 40, 40))
+        pygame.draw.rect(sc, BLACK, (self.x -wx -17 , w - h_bottom+40, 40, 40), 3)
+        pygame.draw.circle(sc, GREEN, (self.x - wx + 4, self.y), 10)
+        pygame.draw.circle(sc, BLACK, (self.x - wx + 4, self.y), 10, 2)
+
         if self.move_down:
             self.f_h += 2
-        if self.f_h > self.h - 25:
+        if self.f_h > self.h - 65 :
             self.flag_down = True
             self.move_down = False
 
@@ -86,7 +98,7 @@ class COIN(pygame.Rect):
             
 
 class WALL(pygame.Rect):
-    def __init__(self,x,y,w,h,c=0) -> None:
+    def __init__(self,x,y,w,h,c=0,) -> None:
         super(WALL,self).__init__(x,y,w,h)
         self.dy = 0
         self.has_coin = c
@@ -101,6 +113,9 @@ class WALL(pygame.Rect):
                     pygame.draw.rect(sc, GREEN, (self.x - wx, self.y , self.w , self.h))
                 else:
                     pygame.draw.rect(sc, BLACK, (self.x - wx, self.y , self.w , self.h))
+            if self.has_coin == True:
+                sc.blit(picture,(self.x - wx, self.y))
+
 
         if self.dy != 0:
             self.dy += 1
@@ -116,9 +131,11 @@ class WALL(pygame.Rect):
 class WORLD:
     x_world = 0
     block_size = 60
-    lives = 4
+    lives = 5
     botton_block = WALL(0, h_bottom, w_world, h - h_bottom)
     current_level = 0
+    game_over = False
+    all_score = 0
 
     goombas = []
     walls = []  
@@ -134,6 +151,8 @@ class WORLD:
         self.load_level(0)
 
     def load_level(self, n):
+        self.score = 0
+        self.all_score = 0
         level = "level{}.json".format(n)
         self.current_level = n
         self.clean_level()
@@ -149,11 +168,16 @@ class WORLD:
     def clean_level(self):
         self.mario.restart()
         self.walls.clear()
-        self.score = 0
         self.goombas.clear()
         self.coins.clear()
         self.x_world = 0
         self.flag.reset()
+    
+    def GAME_OVER(self):
+        self.score = 0
+        self.current_level = 0
+        self.lives = 5 
+        self.all_score = 0       
 
     def move(self):
         dx = self.mario.vx
@@ -187,13 +211,17 @@ class WORLD:
         if self.flag.flag_down:
             self.current_level = (self.current_level + 1) % 3
             self.load_level(self.current_level)
+            self.lives += 5
 
 
         if self.mario.top > h*2.7:
             self.load_level(self.current_level)
             self.lives -= 1
+        if self.lives < 1:
+            self.GAME_OVER()
 
-
+        
+            
     def draw(self, sc):
         sc.blit(sky, sky_rect)
         for wall in self.walls:
@@ -204,18 +232,19 @@ class WORLD:
             c.draw(sc, self.x_world)
         self.flag.draw(sc, self.x_world)
         self.mario.draw(sc, self.x_world)
-        score_text = self.font.render('score:{}  lives:{}'.format(self.score, self.lives), True, (180, 0, 0))
+        score_text = self.font.render('coin:{}  lives:{}  score:{}'.format(self.score, self.lives, self.all_score), True, (180, 0, 0))
         sc.blit(score_text,(10,10))
     
     def hit_goombas(self):
         i = self.mario.collidelist(self.goombas)
-        if i >= 0:
+        if i >= 0 and mario.alive:
             if self.mario.vy > 0:
                 self.goombas[i].kill()
             elif self.goombas[i].alive:
                 self.mario.kill()
                 pygame.mixer.music.pause()
                 song3.play()
+            self.all_score += 200
 
 
 class MARIO(pygame.Rect):
@@ -248,10 +277,9 @@ class MARIO(pygame.Rect):
         self.y = 50
         pygame.mixer.music.unpause()
    
-
     def jump(self):
         if self.alive and self.can_jump:
-            self.vy = -20
+            self.vy = -23
             self.can_jump = False
             song2.play()
 
@@ -259,9 +287,8 @@ class MARIO(pygame.Rect):
         self.alive = False
         self.vy = -15
 
-
     def move(self, walls):
-        if self.mario_on_flag:
+        if self.mario_on_flag and not world.game_over:
             self.vx = 0
             self.vy = 4
 
@@ -322,6 +349,7 @@ class MARIO(pygame.Rect):
         sc.blit(all_mario,(self.x - wx, self.y), self.texture[self.action][frame] + (self.w, self.h) )
         if self.show_coin:
             sc.blit(self.coin_up, (self.x - wx, self.y - 12))
+            world.all_score += 10
             self.show_coin -= 1
         
 
@@ -407,7 +435,6 @@ while 1:
         mario.set_vx(-7)
     elif Keys [pygame.K_RIGHT]:
         mario.set_vx(7)
-        
     world.move()
     world.draw(sc)
     pygame.display.flip()
