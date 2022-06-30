@@ -151,7 +151,8 @@ class WORLD:
         if self.active_tool < len(self.tools):
             tool = self.tools[self.active_tool]
             if tool['type'] == 'wall':
-                self.walls.pop()
+                if len(self.walls) != 0:
+                    self.walls.pop()
             elif tool['type'] == 'goomba':
                 self.goombas.pop()
  
@@ -190,36 +191,37 @@ class WORLD:
 
                  
 world = WORLD()
-
-while 1:
-    sc.fill(BLACK)
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            exit()
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_s:
-                world.save_level()
-            if event.key == pygame.K_l:
-                world.load_level()
-            if event.key == pygame.K_n:
-                world.clean_level()
-            if event.key == pygame.K_u:
-                world.undo()
-            if event.key == pygame.K_LEFT:
-                world.left()
-            if event.key == pygame.K_RIGHT:
-                world.right()
-            if event.key == pygame.K_UP:
-                world.level_up()
-            if event.key == pygame.K_DOWN:
-                world.level_down()
-        if event.type == pygame.MOUSEBUTTONUP:
-            pos = pygame.mouse.get_pos()
-            if pos[1 ] < h_bottom:
-                world.add_block(pos)
-            else:
-                world.use_tool(pos[0])    
-    sc.fill(BLACK)
-    world.draw(sc)
-    pygame.display.flip()
+def main():
+    while 1:
+        sc.fill(BLACK)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_s:
+                    world.save_level()
+                if event.key == pygame.K_l:
+                    world.load_level()
+                if event.key == pygame.K_n:
+                    world.clean_level()
+                if event.key == pygame.K_u:
+                    world.undo()
+                if event.key == pygame.K_LEFT:
+                    world.left()
+                if event.key == pygame.K_RIGHT:
+                    world.right()
+                if event.key == pygame.K_UP:
+                    world.level_up()
+                if event.key == pygame.K_DOWN:
+                    world.level_down()
+            if event.type == pygame.MOUSEBUTTONUP:
+                pos = pygame.mouse.get_pos()
+                if pos[1 ] < h_bottom:
+                    world.add_block(pos)
+                else:
+                    world.use_tool(pos[0])    
+        sc.fill(BLACK)
+        world.draw(sc)
+        pygame.display.flip()
+main()
 

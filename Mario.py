@@ -14,7 +14,7 @@ w = 1000
 h = 600
 sc = pygame.display.set_mode((w,h), pygame.RESIZABLE)
 
-f1 = pygame.font.Font(None, 18)
+f1 = pygame.font.Font(None, 25)
 f2 = pygame.font.Font(None, 18)
 text1 = f1.render(' SCORE:', True,(180, 0, 0))
 text2 = f2.render('GAME OVER', True,(180, 0, 0))
@@ -40,7 +40,17 @@ sky = pygame.image.load('sky2.jpg')
 sky_rect = sky.get_rect(bottomright=(1700, 820 ))
 block = pygame.image.load('block.jpg')
 picture = block_surprise  = pygame.image.load('mario_block-surprise.png')
+ground = pygame.image.load('fon_mario.jpg')
 picture = pygame.transform.scale(picture, (60, 60))
+ground = pygame.transform.scale(ground, (w_world, 60))
+heart = pygame.image.load('heart.png')
+heart = pygame.transform.scale(heart, (30, 25))
+cool_face = pygame.image.load('cool_face.jpeg')
+cool_face = pygame.transform.scale(cool_face, (26, 25))
+timer_photo = pygame.image.load('timer_photo.webp')
+timer_photo = pygame.transform.scale(timer_photo, (25, 25))
+timer_photo.set_colorkey((255, 255, 255))
+
 rect = picture.get_rect()
 
 #block = pygame.transform.scale(block,(60,60))
@@ -60,7 +70,7 @@ BROWN = 153, 51, 0
 
 class FLAG(pygame.Rect):
     def __init__(self) -> None:
-        super(FLAG,self).__init__(w_world - 100 ,20, 10, h_bottom-20)
+        super(FLAG,self).__init__(w_world- 100 ,20, 10, h_bottom-20)
         self.f_h = self.y
         self.move_down = False
         self.flag_down = False
@@ -110,6 +120,7 @@ class WALL(pygame.Rect):
                 sc.blit(block, (self.x - wx, self.y + self.dy ) , (0, 0, self.w , self.h))
             else:
                 if self.w > w:
+                    pass
                     pygame.draw.rect(sc, GREEN, (self.x - wx, self.y , self.w , self.h))
                 else:
                     pygame.draw.rect(sc, BLACK, (self.x - wx, self.y , self.w , self.h))
@@ -136,7 +147,8 @@ class WORLD:
     current_level = 0
     game_over = False
     all_score = 0
-
+    time = 360
+    timer = FPS
     goombas = []
     walls = []  
     stones = []
@@ -152,6 +164,7 @@ class WORLD:
 
     def load_level(self, n):
         self.score = 0
+        self.time = 360
         self.all_score = 0
         level = "level{}.json".format(n)
         self.current_level = n
@@ -163,6 +176,17 @@ class WORLD:
                 self.walls.append(WALL(block['x'], block['y'], block['w'], block['h'],block.get('c',0)))
             for g in data.get('goombas',[]):
                 self.goombas.append(GOOMBA(g['x'],g['y']))
+    
+    def time_f(self):
+        if self.time < 1:
+            mario.kill()
+            self.time = 4
+        if self.timer < 1:
+            self.time -= 1
+            self.timer = FPS
+        else:
+            self.timer -= 1
+
 
 
     def clean_level(self):
@@ -177,7 +201,8 @@ class WORLD:
         self.score = 0
         self.current_level = 0
         self.lives = 5 
-        self.all_score = 0       
+        self.all_score = 0  
+        self.timer = 0     
 
     def move(self):
         dx = self.mario.vx
@@ -224,16 +249,41 @@ class WORLD:
             
     def draw(self, sc):
         sc.blit(sky, sky_rect)
+        pygame.draw.rect(sc, BLACK,(0, 0, 1000, 30))
+        pygame.draw.rect(sc, WHITE,(0, -2, 1002, 32), 2)
+        pygame.draw.line(sc, WHITE,[65, -2], [65, 28], 2)
+        pygame.draw.line(sc, WHITE,[125, -2], [125, 28], 2)
+        pygame.draw.line(sc, WHITE,[230, -2], [230, 28], 2)
+        pygame.draw.line(sc, WHITE,[310, -2], [310, 28], 2)
+
+
+        #sc.blit(ground, (0, h_bottom))
         for wall in self.walls:
             wall.draw(sc, self.x_world)
         for g in self.goombas:
-            g.draw(sc,self.x_world)
+            g.draw(sc,self.x_world) 
         for c in self.coins:
             c.draw(sc, self.x_world)
         self.flag.draw(sc, self.x_world)
         self.mario.draw(sc, self.x_world)
-        score_text = self.font.render('coin:{}  lives:{}  score:{}'.format(self.score, self.lives, self.all_score), True, (180, 0, 0))
-        sc.blit(score_text,(10,10))
+        pygame.draw.circle(sc, YELLOW,( 28, 12), 9)
+        sc.blit(timer_photo,(240, 0))
+        sc.blit(cool_face,(135, 0))
+        sc.blit(heart,(72, 0))
+        score_text = f1.render('  {}  '.format(self.score), True, (WHITE))
+        sc.blit(score_text,(32,5))
+        lives_text = f1.render('  {}  '.format(self.lives), True, (WHITE))
+        sc.blit(lives_text,(92, 5))
+        score_text = f1.render('  {}  '.format(self.all_score), True, (WHITE))
+        sc.blit(score_text,(155, 5))
+        time_text = f1.render('  {}  '.format(self.time), True, (WHITE))
+        sc.blit(time_text,(260, 5))
+
+
+
+        #score_text = f1.render('|         {}      |         {}      |         {}       |          {}      |'.format(self.score, self.lives, self.all_score, self.time), True, (WHITE))
+        #sc.blit(score_text,(40,5))
+        self.time_f()
     
     def hit_goombas(self):
         i = self.mario.collidelist(self.goombas)
@@ -286,6 +336,8 @@ class MARIO(pygame.Rect):
     def kill(self):
         self.alive = False
         self.vy = -15
+        pygame.mixer.music.pause()
+        song3.play()
 
     def move(self, walls):
         if self.mario_on_flag and not world.game_over:
@@ -414,29 +466,30 @@ class GOOMBA(pygame.Rect):
 
 mario = MARIO()
 world = WORLD(mario)
-
-pygame.mixer.music.play(-1)
-while 1:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            exit()
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                mario.jump()
-            if event.key == pygame.K_1:
-                world.load_level(0)
-            if event.key == pygame.K_2:
-                world.load_level(1)
-            if event.key == pygame.K_3:
-                world.load_level(2)
-    Keys = pygame.key.get_pressed()
-    mario.set_vx(0)
-    if Keys [pygame.K_LEFT]:
-        mario.set_vx(-7)
-    elif Keys [pygame.K_RIGHT]:
-        mario.set_vx(7)
-    world.move()
-    world.draw(sc)
-    pygame.display.flip()
-    clock.tick(FPS)
+def main():
+    pygame.mixer.music.play(-1)
+    while 1:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    mario.jump()
+                if event.key == pygame.K_1:
+                    world.load_level(0)
+                if event.key == pygame.K_2:
+                    world.load_level(1)
+                if event.key == pygame.K_3:
+                    world.load_level(2)
+        Keys = pygame.key.get_pressed()
+        mario.set_vx(0)
+        if Keys [pygame.K_LEFT]:
+            mario.set_vx(-7)
+        elif Keys [pygame.K_RIGHT]:
+            mario.set_vx(7)
+        world.move()
+        world.draw(sc)
+        pygame.display.flip()
+        clock.tick(FPS)
+main()
 
