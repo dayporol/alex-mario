@@ -10,39 +10,38 @@ from sys import flags
 from time import sleep
 import pygame
 pygame.init()
- 
+
+#ЭКРАН
 w = 1000
 h = 600
 sc = pygame.display.set_mode((w,h), pygame.RESIZABLE)
+clock = pygame.time.Clock()
+w_world = 8000
+h_bottom = 540
+FPS = 30
 
+#ТЕКСТ
 f1 = pygame.font.Font(None, 25)
 f2 = pygame.font.Font(None, 18)
 text1 = f1.render(' SCORE:', True,(180, 0, 0))
 text2 = f2.render('GAME OVER', True,(180, 0, 0))
 
-
-w_world = 8000
-h_bottom = 540
-
-FPS = 30
+#МУЗЫКА-ЗВУКИ
 pygame.mixer.music.load("super-mario-saundtrek.mp3")
 pygame.mixer.music.play(-1)
-
 song1 = pygame.mixer.Sound("money.mp3")
 song2 = pygame.mixer.Sound("mario_jump.mp3")
 song3 = pygame.mixer.Sound("mario-dead.mp3")
 song4 = pygame.mixer.Sound("goomba-dead.mp3")
 song5 = pygame.mixer.Sound("mario_level.end.mp3")
 
-
-
-
+#ТЕКСТУРЫ
 sky = pygame.image.load('sky2.jpg')
 sky_rect = sky.get_rect(bottomright=(1700, 820 ))
 block = pygame.image.load('block.jpg')
 picture = block_surprise  = pygame.image.load('mario_block-surprise.png')
-ground = pygame.image.load('fon_mario.jpg')
 picture = pygame.transform.scale(picture, (60, 60))
+ground = pygame.image.load('fon_mario.jpg')
 ground = pygame.transform.scale(ground, (w_world, 60))
 heart = pygame.image.load('heart.png')
 heart = pygame.transform.scale(heart, (30, 25))
@@ -51,17 +50,11 @@ cool_face = pygame.transform.scale(cool_face, (26, 25))
 timer_photo = pygame.image.load('timer_photo.webp')
 timer_photo = pygame.transform.scale(timer_photo, (25, 25))
 timer_photo.set_colorkey((255, 255, 255))
-
-rect = picture.get_rect()
-
-#block = pygame.transform.scale(block,(60,60))
 all_mario = pygame.image.load('mario.png')
 all_goomba = pygame.image.load('goomba.png')
 all_money = pygame.image.load('mario_money.png')
-#all_mario = pygame.transform.scale(all_mario,(600,500))
 
-clock = pygame.time.Clock()
-
+#ЦВЕТА
 WHITE = 255, 255, 255
 GREEN = 0, 255, 0
 BLACK = 0, 0, 0
@@ -69,6 +62,7 @@ YELLOW = 255, 255, 0
 RED = 255,0,0
 BROWN = 153, 51, 0
 
+#ТРУБЫ
 class PIPE(pygame.Rect):
     def __init__(self, x, y):
         super(PIPE,self).__init__(x, y, 110,  h_bottom + 30)
@@ -82,7 +76,7 @@ class PIPE(pygame.Rect):
         pygame.draw.rect(sc, GREEN,(self.x - wx - 7, self.y  , self.w + 14, 25 ))
         pygame.draw.rect(sc, BLACK,(self.x - wx - 10, self.y , self.w + 19, 25), 3, 3)
 
-
+#ФЛАГ
 class FLAG(pygame.Rect):
     def __init__(self) -> None:
         super(FLAG,self).__init__(w_world- 100 ,20, 10, h_bottom-20)
@@ -113,22 +107,21 @@ class FLAG(pygame.Rect):
         if not self.flag_down:
             self.move_down = True
 
-
+#МОНЕТКА
 class COIN(pygame.Rect):
     def __init__(self,x,y) -> None:
         super(COIN,self).__init__(x,y,20,20)
 
     def draw(self, sc, wx):
         sc.blit(all_money, (self.x - wx, self.y))
-            
 
+#СТЕНЫ
 class WALL(pygame.Rect):
     def __init__(self,x,y,w,h,c=0,) -> None:
         super(WALL,self).__init__(x,y,w,h)
         self.dy = 0
         self.has_coin = c
         
-
     def draw(self, sc, wx):
         if self.x - wx < w and self.x + self.w - wx > 0:
             if self.y < h_bottom:  
@@ -142,7 +135,6 @@ class WALL(pygame.Rect):
             if self.has_coin == True:
                 sc.blit(picture,(self.x - wx, self.y))
 
-
         if self.dy != 0:
             self.dy += 1
 
@@ -151,9 +143,9 @@ class WALL(pygame.Rect):
             self.dy = -10
             self.has_coin = False
             # TODO - FIXME !!!
-            world.coins.append(COIN(self.x+int(self.w/2)-10, self.y - 23))
-            
+            world.coins.append(COIN(self.x+int(self.w/2)-10, self.y - 23))  
 
+#МИР(ОСНОВНОЙ КЛАСС)
 class WORLD:
     x_world = 0
     block_size = 60
@@ -164,12 +156,12 @@ class WORLD:
     all_score = 0
     time = 360
     timer = FPS
+
     goombas = []
     walls = []  
     stones = []
     coins = []
     pipes = []
-
 
     def __init__(self, mario) -> None:
         self.font = pygame.font.Font(None, 18)
@@ -185,7 +177,6 @@ class WORLD:
         level = "level{}.json".format(n)
         self.current_level = n
         self.clean_level()
-        #self.trubies.append(PIPE())
         with open(level) as json_file:
             data = json.load(json_file)
             self.walls.append(self.botton_block)
@@ -206,16 +197,15 @@ class WORLD:
         else:
             self.timer -= 1
 
-
-
     def clean_level(self):
         self.mario.restart()
         self.walls.clear()
         self.goombas.clear()
         self.coins.clear()
         self.pipes.clear()
-        self.x_world = 0
         self.flag.reset()
+        self.x_world = 0
+
     
     def GAME_OVER(self):
         self.score = 0
@@ -229,6 +219,7 @@ class WORLD:
         if not ( dx > 0 and self.mario.x < w_world - self.mario.w or dx < 0 and self.mario.x > 0 ):
             self.mario.vx = 0
         self.mario.move(self.walls, self.pipes)
+
         i = self.mario.collidelist(self.coins)
         if i >= 0 and self.mario.alive:
             self.score += 1
@@ -240,6 +231,7 @@ class WORLD:
             self.x_world += dx
         if dx < 0 and self.mario.x - self.x_world < w*1/4 and self.x_world > 0 :
             self.x_world += dx
+
         for g in self.goombas:
             if g.top > h:
                 self.goombas.remove(g)
@@ -258,14 +250,11 @@ class WORLD:
             self.load_level(self.current_level)
             self.lives += 5
 
-
         if self.mario.top > h*2.7:
             self.load_level(self.current_level)
             self.lives -= 1
         if self.lives < 1:
             self.GAME_OVER()
-
-        
             
     def draw(self, sc):
         sc.blit(sky, sky_rect)
@@ -298,26 +287,20 @@ class WORLD:
         sc.blit(score_text,(155, 5))
         time_text = f1.render('  {}  '.format(self.time), True, (WHITE))
         sc.blit(time_text,(260, 5))
-
-
-
-        #score_text = f1.render('|         {}      |         {}      |         {}       |          {}      
-        # |'.format(self.score, self.lives, self.all_score, self.time), True, (WHITE))
-        #sc.blit(score_text,(40,5))
         self.time_f()
     
-    def hit_goombas(self):
-        i = self.mario.collidelist(self.goombas)
-        if i >= 0 and mario.alive:
-            if self.mario.vy > 0:
-                self.goombas[i].kill()
-            elif self.goombas[i].alive:
-                self.mario.kill()
-                pygame.mixer.music.pause()
-                song3.play()
-            self.all_score += 200
+    def hit_goombas(self): 
+            i = self.mario.collidelist(self.goombas)
+            if i >= 0 and mario.alive:
+                if self.mario.vy > 0:
+                    self.goombas[i].kill()
+                elif self.goombas[i].alive:
+                    self.mario.kill()
+                    pygame.mixer.music.pause()
+                    song3.play()
+                self.all_score += 200
 
-
+#МАРИО
 class MARIO(pygame.Rect):
     vy = 0
     vx = 0
@@ -380,12 +363,14 @@ class MARIO(pygame.Rect):
                 self.y = wall.y + wall.h
                 wall.hit()
             self.vy = 0
+
         i = self.collidelist(pipes)
         if i >= 0 and self.alive:
             pipe = pipes[i]
             if self.vy > 0:
                 self.y = pipe.y - self.h 
                 self.can_jump = True
+
         # x
         self.x += self.vx
         i = self.collidelist(walls)
@@ -395,6 +380,7 @@ class MARIO(pygame.Rect):
                 self.x = wall.x - self.w
             else:
                 self.x = wall.x + wall.w
+
         i = self.collidelist(pipes)
         if i>=0 and self.alive:
             pipe = pipes[i]
@@ -406,7 +392,6 @@ class MARIO(pygame.Rect):
         if self.mario_on_flag and self.bottom >= h_bottom:
             self.mario_on_flag = False
        
- 
     def hit_coin(self):
         self.show_coin = FPS
 
@@ -422,13 +407,13 @@ class MARIO(pygame.Rect):
             self.action = "right"
         else:
             self.action = "stay"
+
         if not self.can_jump and self.vx > 0:
             self.action = "jump_right"
         if not self.can_jump and self.vx < 0:
             self.action = "jump_left"
         if not self.alive or self.mario_on_flag:
             self.action = "jump_right"
-            
 
         #pygame.draw.rect(sc, BLACK, (mario.x - wx, mario.y, self.w, self.h))
         num_frames = len(self.texture[self.action])
@@ -439,8 +424,7 @@ class MARIO(pygame.Rect):
             world.all_score += 10
             self.show_coin -= 1
         
-
-#GOOMBA
+#GOOMBA(ВРАГ)
 class GOOMBA(pygame.Rect):
     vx = 3
     vy = 0
@@ -470,6 +454,7 @@ class GOOMBA(pygame.Rect):
             else:
                 self.y = wall.y + wall.h
             self.vy = 0
+
         i = self.collidelist(pipes)
         if i >= 0 and self.alive:
             pipe = pipes[i]
@@ -478,6 +463,7 @@ class GOOMBA(pygame.Rect):
             else:
                 self.y = pipe.y + pipe.h
             self.vy = 0
+
         # x
         self.x += self.vx
         i = self.collidelist(walls)
@@ -488,6 +474,7 @@ class GOOMBA(pygame.Rect):
             else:
                 self.x = wall.x + wall.w
             self.vx = - self.vx
+
         i = self.collidelist(pipes)
         if i>=0 and self.alive:
             pipe = pipes[i]
@@ -502,7 +489,6 @@ class GOOMBA(pygame.Rect):
 
         if self.alive and abs(self.x - self.x0) > 200:
             self.vx = - self.vx
-        
 
     def draw(self,sc, wx):
         if self.alive:
@@ -514,10 +500,9 @@ class GOOMBA(pygame.Rect):
             self.show_coin = True
             sc.blit(all_goomba,(self.x - wx, self.y), self.textures_dead + (self.w, self.h) )
 
-
-
 mario = MARIO()
 world = WORLD(mario)
+
 def main():
     pygame.mixer.music.play(-1)
     while 1:
@@ -544,4 +529,3 @@ def main():
         pygame.display.flip()
         clock.tick(FPS)
 main()
-
