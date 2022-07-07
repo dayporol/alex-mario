@@ -2,6 +2,7 @@ from argparse import Action
 import json
 from random import randint
 import json
+from re import X
 import pygame
 pygame.init()
  
@@ -35,7 +36,20 @@ class WALL:
         if self.c:
             pygame.draw.circle(sc, YELLOW, (self.x - wx + self.w//2, self.y+self.h//2) , 5)
             pygame.draw.circle(sc, BLACK, (self.x - wx + self.w//2, self.y+self.h//2) , 6, 2)
+    
+class PIPE:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    W = 110
+    H = h - h_bottom
+    
 
+    def draw(self, sc, wx):
+        pygame.draw.rect(sc, GREEN,(self.x - wx, self.y , self.W, self.H ))
+        pygame.draw.rect(sc, BLACK,(self.x - wx, self.y , self.W, self.H ), 3)
+        pygame.draw.rect(sc, GREEN,(self.x - wx - 7, self.y  , self.W + 14, 25 ))
+        pygame.draw.rect(sc, BLACK,(self.x - wx - 10, self.y , self.W + 19, 25), 3, 3)
 
 #GOOMBA
 class GOOMBA:
@@ -61,7 +75,10 @@ class WORLD:
     block_size = 60
     walls = []
     goombas = []
+    pipes = []
     active_tool = 0
+
+        
 
     tools = [
         {'type': 'wall', 'size': (1,1) ,'has_coin':0},
@@ -72,16 +89,19 @@ class WORLD:
         {'type': 'wall', 'size': (2,4) ,'has_coin':0},
         {'type': 'wall', 'size': (4,2) ,'has_coin':0},
         {'type': 'goomba'},
+        {'type': 'pipe'},
+
     ]
 
     def __init__(self):
         self.font = pygame.font.Font(None, 14)
         self._update_level_()
 
+
     def save_level(self):
         
         with open(self.level, 'w') as outfile:
-            data = {'blocks':[],'goombas':[]}
+            data = {'blocks':[],'goombas':[], 'pipes':[]}
             for w in self.walls:
                 block = {
                     'x':w.x,
@@ -97,6 +117,14 @@ class WORLD:
                     'y':g.y,
                 }
                 data['goombas'].append(goomba)
+
+            for p in self.pipes:
+                pipe = {
+                    'x':p.x,
+                    'y':p.y,
+                }
+                data['pipes'].append(pipe)
+
             json_string = json.dumps(data, indent=4)
             outfile.write(json_string)
 
@@ -108,11 +136,14 @@ class WORLD:
                 self.walls.append(WALL(block['x'], block['y'], block['w'], block['h'], block.get('c',0)))
             for g in data.get('goombas',[]):
                 self.goombas.append(GOOMBA(g['x'], g['y']))
+            for p in data.get('pipes',[]):
+                self.pipes.append(PIPE(p['x'], p['y']))
     
 
     def clean_level(self):
         self.goombas.clear()
         self.walls.clear()
+        self.pipes.clear()
 
     def _update_level_(self):
         self.level = "level{}.json".format(self.level_n)
@@ -146,6 +177,8 @@ class WORLD:
                 self.walls.append(WALL(x,y, w, h, tool['has_coin'] ))
             elif tool['type'] == 'goomba':
                 self.goombas.append(GOOMBA(x,y))
+            elif tool['type'] == 'pipe':
+                self.pipes.append(PIPE(x,y))
     
     def undo(self):
         if self.active_tool < len(self.tools):
@@ -155,7 +188,9 @@ class WORLD:
                     self.walls.pop()
             elif tool['type'] == 'goomba':
                 self.goombas.pop()
- 
+            elif tool['type'] == 'pipe':
+                self.pipes.pop()
+
     def use_tool(self,x):
         self.active_tool = int(x/self.tool_size)
  
@@ -166,6 +201,9 @@ class WORLD:
 
         for g in self.goombas:
             g.draw(sc, self.x_world)
+        
+        for p in self.pipes:
+            p.draw(sc, self.x_world)
 
         while x<w:
             pygame.draw.line(sc,WHITE,(x,0),(x,h_bottom))
@@ -187,6 +225,8 @@ class WORLD:
                     WALL(i*self.tool_size + 10, h_bottom + 10,  10 * size[0], 10 * size[1], has_coin).draw(sc, 0)
                 elif self.tools[i]['type'] == 'goomba':
                     GOOMBA(i*self.tool_size + 7, h_bottom + 5).draw(sc,0)
+                elif self.tools[i]['type'] == 'pipe':
+                    PIPE(i*self.tool_size + 20, h_bottom).draw(sc,0)
 
 
                  

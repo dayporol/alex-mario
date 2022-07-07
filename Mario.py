@@ -2,6 +2,7 @@ from argparse import Action
 from ast import alias
 import json
 from os import supports_bytes_environ
+import pipes
 from random import randint
 import json
 from re import T
@@ -67,6 +68,20 @@ BLACK = 0, 0, 0
 YELLOW = 255, 255, 0
 RED = 255,0,0
 BROWN = 153, 51, 0
+
+class PIPE(pygame.Rect):
+    def __init__(self, x, y):
+        super(PIPE,self).__init__(x, y, 110,  h_bottom + 30)
+
+    def set_W(self):
+        self.w = h - self.y - (h - h_bottom)
+    
+    def draw(self, sc, wx):
+        pygame.draw.rect(sc, GREEN,(self.x - wx, self.y , self.w, self.h ))
+        pygame.draw.rect(sc, BLACK,(self.x - wx, self.y , self.w, self.h ), 3)
+        pygame.draw.rect(sc, GREEN,(self.x - wx - 7, self.y  , self.w + 14, 25 ))
+        pygame.draw.rect(sc, BLACK,(self.x - wx - 10, self.y , self.w + 19, 25), 3, 3)
+
 
 class FLAG(pygame.Rect):
     def __init__(self) -> None:
@@ -153,6 +168,7 @@ class WORLD:
     walls = []  
     stones = []
     coins = []
+    pipes = []
 
 
     def __init__(self, mario) -> None:
@@ -169,6 +185,7 @@ class WORLD:
         level = "level{}.json".format(n)
         self.current_level = n
         self.clean_level()
+        #self.trubies.append(PIPE())
         with open(level) as json_file:
             data = json.load(json_file)
             self.walls.append(self.botton_block)
@@ -176,6 +193,8 @@ class WORLD:
                 self.walls.append(WALL(block['x'], block['y'], block['w'], block['h'],block.get('c',0)))
             for g in data.get('goombas',[]):
                 self.goombas.append(GOOMBA(g['x'],g['y']))
+            for p in data.get('pipes',[]):
+                self.pipes.append(PIPE(p['x'], p['y']))
     
     def time_f(self):
         if self.time < 1:
@@ -194,6 +213,7 @@ class WORLD:
         self.walls.clear()
         self.goombas.clear()
         self.coins.clear()
+        self.pipes.clear()
         self.x_world = 0
         self.flag.reset()
     
@@ -208,7 +228,7 @@ class WORLD:
         dx = self.mario.vx
         if not ( dx > 0 and self.mario.x < w_world - self.mario.w or dx < 0 and self.mario.x > 0 ):
             self.mario.vx = 0
-        self.mario.move(self.walls)
+        self.mario.move(self.walls, self.pipes)
         i = self.mario.collidelist(self.coins)
         if i >= 0 and self.mario.alive:
             self.score += 1
@@ -223,7 +243,7 @@ class WORLD:
         for g in self.goombas:
             if g.top > h:
                 self.goombas.remove(g)
-            g.move(self.walls)
+            g.move(self.walls, self.pipes)
         
         if self.mario.alive:
             self.hit_goombas()
@@ -255,9 +275,9 @@ class WORLD:
         pygame.draw.line(sc, WHITE,[125, -2], [125, 28], 2)
         pygame.draw.line(sc, WHITE,[230, -2], [230, 28], 2)
         pygame.draw.line(sc, WHITE,[310, -2], [310, 28], 2)
-
-
-        #sc.blit(ground, (0, h_bottom))
+        sc.blit(ground, (0, h_bottom))
+        for p in self.pipes:
+            p.draw(sc, self.x_world)
         for wall in self.walls:
             wall.draw(sc, self.x_world)
         for g in self.goombas:
@@ -281,7 +301,8 @@ class WORLD:
 
 
 
-        #score_text = f1.render('|         {}      |         {}      |         {}       |          {}      |'.format(self.score, self.lives, self.all_score, self.time), True, (WHITE))
+        #score_text = f1.render('|         {}      |         {}      |         {}       |          {}      
+        # |'.format(self.score, self.lives, self.all_score, self.time), True, (WHITE))
         #sc.blit(score_text,(40,5))
         self.time_f()
     
@@ -314,7 +335,7 @@ class MARIO(pygame.Rect):
     }
 
     def __init__(self):
-        super(MARIO, self).__init__(50,50,35,60)
+        super(MARIO, self).__init__(50, 50 ,35,60)
         font = pygame.font.Font(None, 14)
         self.coin_up = font.render("+1", True, YELLOW)
         self.show_coin = 0
@@ -324,7 +345,7 @@ class MARIO(pygame.Rect):
         self.vx = 0
         self.vy = 0
         self.x = 50
-        self.y = 50
+        self.y = 500
         pygame.mixer.music.unpause()
    
     def jump(self):
@@ -339,13 +360,14 @@ class MARIO(pygame.Rect):
         pygame.mixer.music.pause()
         song3.play()
 
-    def move(self, walls):
+    def move(self, walls, pipes):
         if self.mario_on_flag and not world.game_over:
             self.vx = 0
             self.vy = 4
 
         if self.vy < 20:
             self.vy = self.vy + 1
+       
         # y
         self.y += self.vy
         i = self.collidelist(walls)
@@ -358,6 +380,12 @@ class MARIO(pygame.Rect):
                 self.y = wall.y + wall.h
                 wall.hit()
             self.vy = 0
+        i = self.collidelist(pipes)
+        if i >= 0 and self.alive:
+            pipe = pipes[i]
+            if self.vy > 0:
+                self.y = pipe.y - self.h 
+                self.can_jump = True
         # x
         self.x += self.vx
         i = self.collidelist(walls)
@@ -367,6 +395,13 @@ class MARIO(pygame.Rect):
                 self.x = wall.x - self.w
             else:
                 self.x = wall.x + wall.w
+        i = self.collidelist(pipes)
+        if i>=0 and self.alive:
+            pipe = pipes[i]
+            if self.vx > 0:
+                self.x = pipe.x - self.w 
+            else:
+                self.x = pipe.x + pipe.w
 
         if self.mario_on_flag and self.bottom >= h_bottom:
             self.mario_on_flag = False
@@ -424,7 +459,7 @@ class GOOMBA(pygame.Rect):
         self.vy = -15
         song4.play()
 
-    def move(self,walls):
+    def move(self,walls,pipes):
         # y
         self.y += self.vy
         i = self.collidelist(walls)
@@ -434,6 +469,14 @@ class GOOMBA(pygame.Rect):
                 self.y = wall.y - self.h
             else:
                 self.y = wall.y + wall.h
+            self.vy = 0
+        i = self.collidelist(pipes)
+        if i >= 0 and self.alive:
+            pipe = pipes[i]
+            if self.vy > 0:
+                self.y = pipe.y - self.h
+            else:
+                self.y = pipe.y + pipe.h
             self.vy = 0
         # x
         self.x += self.vx
@@ -445,6 +488,15 @@ class GOOMBA(pygame.Rect):
             else:
                 self.x = wall.x + wall.w
             self.vx = - self.vx
+        i = self.collidelist(pipes)
+        if i>=0 and self.alive:
+            pipe = pipes[i]
+            if self.vx > 0:
+                self.x = pipe.x - self.w 
+            else:
+                self.x = pipe.x + pipe.w
+            self.vx = -self.vx
+
         if self.vy < 20:
             self.vy = self.vy + 1
 
