@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from argparse import Action
 from ast import alias
 import json
@@ -370,6 +372,7 @@ class MARIO(pygame.Rect):
             if self.vy > 0:
                 self.y = pipe.y - self.h 
                 self.can_jump = True
+            self.vy = 0
 
         # x
         self.x += self.vx

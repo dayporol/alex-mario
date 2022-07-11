@@ -38,12 +38,12 @@ class WALL:
             pygame.draw.circle(sc, BLACK, (self.x - wx + self.w//2, self.y+self.h//2) , 6, 2)
     
 class PIPE:
-    def __init__(self, x, y):
+
+    def __init__(self, x, y, W=110, H=None):
         self.x = x
         self.y = y
-    W = 110
-    H = h - h_bottom
-    
+        self.W = W
+        self.H = H if H else h_bottom-y
 
     def draw(self, sc, wx):
         pygame.draw.rect(sc, GREEN,(self.x - wx, self.y , self.W, self.H ))
@@ -226,7 +226,7 @@ class WORLD:
                 elif self.tools[i]['type'] == 'goomba':
                     GOOMBA(i*self.tool_size + 7, h_bottom + 5).draw(sc,0)
                 elif self.tools[i]['type'] == 'pipe':
-                    PIPE(i*self.tool_size + 20, h_bottom).draw(sc,0)
+                    PIPE(i*self.tool_size + 10, h_bottom + 5, 40, 40).draw(sc,0)
 
 
                  
